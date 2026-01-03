@@ -1,0 +1,266 @@
+const Settings = require("../models/Settings");
+
+const Order = require("../models/Order");
+
+/* ============================
+   STUDENT → PAYMENT CREATES ORDER
+============================ */
+exports.paymentProof = async (req, res) => {
+  try {
+
+    // 🔴 CHECK IF CAFE IS OPEN
+    let settings = await Settings.findOne();
+    if (!settings) {
+      settings = await Settings.create({});
+    }
+
+    if (!settings.isAcceptingOrders) {
+      return res.status(403).json({
+        msg: "Cafe is currently not accepting orders"
+      });
+    }
+
+    const userId = req.user.id;
+
+    const {
+      items,
+      subtotal,
+      total,
+      roomNo,
+      utr,
+      name,
+      phone
+    } = req.body;
+
+    const active = await Order.findOne({
+      userId,
+      status: { $nin: ["delivered", "declined"] }
+    });
+
+    if (active) {
+      return res.status(400).json({
+        msg: "You already have an active order"
+      });
+    }
+
+    const order = await Order.create({
+      userId,
+      items,
+      subtotal,
+      totalAmount: total,
+      roomNo,
+      transactionId: utr,
+      customerName: name,
+      customerPhone: phone,
+      paymentStatus: "verifying",
+      status: "pending"
+    });
+
+    res.json({
+      msg: "Payment received. Order placed successfully.",
+      orderId: order._id
+    });
+
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ msg: "Server Error" });
+  }
+};
+
+
+
+/* ============================
+   OWNER → GET ALL ORDERS
+============================ */
+exports.getOrdersForOwner = async (req, res) => {
+  const orders = await Order.find().sort({ createdAt: -1 });
+  res.json(orders);
+};
+
+
+/* ============================
+   OWNER → ACCEPT ORDER
+============================ */
+exports.acceptOrder = async (req, res) => {
+  const { orderId } = req.body;
+
+  const order = await Order.findById(orderId);
+  if (!order) return res.status(404).json({ msg: "Order not found" });
+
+  if (["declined", "delivered"].includes(order.status)) {
+    return res.status(400).json({ msg: "Order already closed" });
+  }
+
+  order.status = "accepted";
+  order.paymentStatus = "paid";
+  await order.save();
+
+  res.json({ msg: "Order accepted" });
+};
+
+
+/* ============================
+   OWNER → DECLINE ORDER
+============================ */
+exports.declineOrder = async (req, res) => {
+  const { orderId } = req.body;
+
+  const order = await Order.findById(orderId);
+  if (!order) return res.status(404).json({ msg: "Order not found" });
+
+  if (order.status === "declined") {
+    return res.status(400).json({ msg: "Order already declined" });
+  }
+
+  if (order.status === "delivered") {
+    return res.status(400).json({ msg: "Delivered order cannot be declined" });
+  }
+
+  order.status = "declined";
+  order.paymentStatus = "failed";
+  await order.save();
+
+  res.json({ msg: "Order declined" });
+};
+
+
+/* ============================
+   OWNER → UPDATE STATUS
+============================ */
+exports.updateStatus = async (req, res) => {
+  const { orderId, status } = req.body;
+
+  const order = await Order.findById(orderId);
+  if (!order) return res.status(404).json({ msg: "Order not found" });
+
+  if (["declined", "delivered"].includes(order.status)) {
+    return res.status(400).json({ msg: "Closed orders cannot be updated" });
+  }
+
+  const allowedFlow = {
+    accepted: ["preparing"],
+    preparing: ["outForDelivery"],
+    outForDelivery: ["delivered"]
+  };
+
+  if (!allowedFlow[order.status]?.includes(status)) {
+    return res.status(400).json({
+      msg: `Invalid status transition`
+    });
+  }
+
+  order.status = status;
+  await order.save();
+
+  res.json({ msg: "Status updated" });
+};
+
+
+/* ============================
+   STUDENT → MY ORDERS
+============================ */
+exports.getMyOrders = async (req, res) => {
+  const orders = await Order.find({
+    userId: req.user.id
+  }).sort({ createdAt: -1 });
+
+  res.json(orders);
+};
+
+
+/* ============================
+   OWNER → SUPER ANALYTICS ✅
+============================ */
+exports.superAnalytics = async (req, res) => {
+  try {
+    const orders = await Order.find();
+
+    const now = new Date();
+    const todayStart = new Date();
+    todayStart.setHours(0,0,0,0);
+
+    const todayEnd = new Date();
+    todayEnd.setHours(23,59,59,999);
+
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+
+    const yesterdayEnd = new Date(todayEnd);
+    yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
+
+    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+    const count = {
+      total: orders.length,
+      delivered: orders.filter(o => o.status === "delivered").length,
+      declined: orders.filter(o => o.status === "declined").length,
+      pending: orders.filter(o => !["delivered","declined"].includes(o.status)).length
+    };
+
+    const sum = arr => arr.reduce((s,o)=> s + (o.totalAmount || 0), 0);
+
+    const todayOrders = orders.filter(o =>
+      new Date(o.createdAt) >= todayStart &&
+      new Date(o.createdAt) <= todayEnd
+    );
+
+    const yesterdayOrders = orders.filter(o =>
+      new Date(o.createdAt) >= yesterdayStart &&
+      new Date(o.createdAt) <= yesterdayEnd
+    );
+
+    const monthOrders = orders.filter(o =>
+      new Date(o.createdAt) >= monthStart
+    );
+
+    res.json({
+      count,
+      today: {
+        orders: todayOrders.length,
+        earning: sum(todayOrders)
+      },
+      yesterday: {
+        orders: yesterdayOrders.length,
+        earning: sum(yesterdayOrders)
+      },
+      month: {
+        orders: monthOrders.length,
+        earning: sum(monthOrders)
+      },
+      orders
+    });
+
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ msg: "Analytics error" });
+  }
+};
+
+/* ============================
+   OWNER → GET ORDER STATUS
+============================ */
+exports.getOrderStatus = async (req, res) => {
+  let settings = await Settings.findOne();
+  if (!settings) settings = await Settings.create({});
+  res.json(settings);
+};
+
+
+/* ============================
+   OWNER → TOGGLE ORDERS
+============================ */
+exports.toggleOrders = async (req, res) => {
+  const { isAcceptingOrders } = req.body;
+
+  let settings = await Settings.findOne();
+  if (!settings) settings = await Settings.create({});
+
+  settings.isAcceptingOrders = isAcceptingOrders;
+  await settings.save();
+
+  res.json({
+    msg: isAcceptingOrders
+      ? "Orders are now OPEN"
+      : "Orders are now CLOSED"
+  });
+};

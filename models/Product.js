@@ -5,6 +5,7 @@ const productSchema = new mongoose.Schema({
   description: String,
   price: Number,
   image: String,
+  category: String, 
   available: { type: Boolean, default: true }
 });
 

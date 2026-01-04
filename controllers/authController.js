@@ -37,6 +37,9 @@ exports.signup = async (req, res) => {
 // =====================
 // LOGIN (FIXED ✅)
 // =====================
+// =====================
+// LOGIN (PRODUCTION SAFE)
+// =====================
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -49,13 +52,13 @@ exports.login = async (req, res) => {
     if (!isMatch)
       return res.status(400).json({ msg: "Invalid credentials" });
 
+    // 🔐 JWT with EXPIRY (12 hours)
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "12h" }
     );
 
-    // 🔥 IMPORTANT FIX: SEND ALL REQUIRED FIELDS
     res.json({
       msg: "Login Successful",
       token,

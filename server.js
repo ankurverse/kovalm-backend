@@ -6,10 +6,10 @@ const connectDB = require("./config/db");
 const app = express();
 
 /* =========================
-   CORS CONFIG (IMPORTANT)
+   CORS CONFIG
 ========================= */
 app.use(cors({
-  origin: "*", // allow all origins (safe for now)
+  origin: "*",
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
@@ -25,7 +25,7 @@ connectDB();
    HEALTH CHECK
 ========================= */
 app.get("/", (req, res) => {
-  res.send("Kovalm Cafe API Running");
+  res.send("CollegeCart API Running");
 });
 
 /* =========================
@@ -34,10 +34,12 @@ app.get("/", (req, res) => {
 const authRoutes = require("./routes/authRoutes");
 const productRoutes = require("./routes/productRoutes");
 const orderRoutes = require("./routes/orderRoutes");
+const notificationRoutes = require("./routes/notificationRoutes"); // ✅ ADD THIS
 
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/notifications", notificationRoutes); // ✅ ADD THIS
 
 /* =========================
    SERVER START

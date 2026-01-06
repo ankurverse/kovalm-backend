@@ -21,6 +21,10 @@ router.get("/my", auth, getMyOrders);
 router.get("/owner/all", auth, getOrdersForOwner);
 router.get("/owner/super-analytics", auth, superAnalytics);
 
+// ✅ STUDENT – CHECK SHOP STATUS
+router.get("/status", getOrderStatus);
+
+
 // START / STOP ORDERS
 router.get("/owner/status", auth, getOrderStatus);
 router.post("/owner/toggle", auth, toggleOrders);

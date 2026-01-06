@@ -7,10 +7,13 @@ const {
   getPublicKey
 } = require("../controllers/notificationController");
 
+const auth = require("../middleware/authMiddleware");
+const ownerOnly = require("../middleware/ownerOnly");
+
 router.post("/subscribe", subscribe);
 router.get("/public-key", getPublicKey);
 
-// (Owner-only later, for now open)
-router.post("/send-promo", sendPromo);
+// 🔐 OWNER ONLY
+router.post("/send-promo", auth, ownerOnly, sendPromo);
 
 module.exports = router;

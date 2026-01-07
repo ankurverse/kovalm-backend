@@ -34,12 +34,14 @@ app.get("/", (req, res) => {
 const authRoutes = require("./routes/authRoutes");
 const productRoutes = require("./routes/productRoutes");
 const orderRoutes = require("./routes/orderRoutes");
-const notificationRoutes = require("./routes/notificationRoutes"); // ✅ ADD THIS
+const notificationRoutes = require("./routes/notificationRoutes");
+const promotionRoutes = require("./routes/promotionRoutes"); // ✅ NEW
 
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
-app.use("/api/notifications", notificationRoutes); // ✅ ADD THIS
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/promotions", promotionRoutes); // ✅ NEW
 
 /* =========================
    SERVER START

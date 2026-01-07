@@ -1,20 +1,21 @@
 const Promotion = require("../models/Promotion");
 
-// STUDENT → get posters
+// STUDENT – get posters
 exports.getPromotions = async (req, res) => {
-  const promos = await Promotion.find({ active: true })
-    .sort({ createdAt: -1 });
+  const promos = await Promotion.find({ active: true }).sort({ createdAt: -1 });
   res.json(promos);
 };
 
-// OWNER → add poster
+// OWNER – add poster
 exports.addPromotion = async (req, res) => {
   const { image } = req.body;
+  if (!image) return res.status(400).json({ msg: "Image URL required" });
+
   await Promotion.create({ image });
   res.json({ msg: "Promotion added" });
 };
 
-// OWNER → delete poster
+// OWNER – delete poster
 exports.deletePromotion = async (req, res) => {
   await Promotion.findByIdAndDelete(req.params.id);
   res.json({ msg: "Promotion removed" });

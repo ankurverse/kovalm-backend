@@ -109,3 +109,30 @@ exports.toggleAvailability = async (req, res) => {
     res.status(500).json({ msg: "Error toggling availability" });
   }
 };
+
+exports.updateStock = async (req, res) => {
+  try {
+    const { productId, change } = req.body;
+
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ msg: "Product not found" });
+    }
+
+    product.quantity += change;
+    if (product.quantity < 0) product.quantity = 0;
+
+    product.available = product.quantity > 0;
+
+    await product.save();
+
+    res.json({
+      msg: "Stock updated",
+      quantity: product.quantity,
+      available: product.available
+    });
+
+  } catch (err) {
+    res.status(500).json({ msg: "Failed to update stock" });
+  }
+};

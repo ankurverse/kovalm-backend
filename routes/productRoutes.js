@@ -7,8 +7,10 @@ const {
   addProduct,
   updateProduct,
   deleteProduct,
-  toggleAvailability
+  toggleAvailability,
+  updateStock   // ✅ ADD
 } = require("../controllers/productController");
+
 
 const auth = require("../middleware/authMiddleware");
 const ownerOnly = require("../middleware/ownerOnly");
@@ -21,6 +23,9 @@ router.get("/", getProducts);
 /* ============================
    OWNER ROUTES (PROTECTED)
 ============================ */
+router.patch("/owner/update-stock", updateStock);
+
+
 router.use(auth, ownerOnly);
 
 router.get("/owner/all", getAllProductsForOwner);

@@ -1,18 +1,15 @@
 const Settings = require("../models/Settings");
-
 const Order = require("../models/Order");
+const Product = require("../models/Product"); // ✅ ADD THIS
 
 /* ============================
    STUDENT → PAYMENT CREATES ORDER
 ============================ */
 exports.paymentProof = async (req, res) => {
   try {
-
     // 🔴 CHECK IF CAFE IS OPEN
     let settings = await Settings.findOne();
-    if (!settings) {
-      settings = await Settings.create({});
-    }
+    if (!settings) settings = await Settings.create({});
 
     if (!settings.isAcceptingOrders) {
       return res.status(403).json({
@@ -32,6 +29,7 @@ exports.paymentProof = async (req, res) => {
       phone
     } = req.body;
 
+    // 🔴 PREVENT MULTIPLE ACTIVE ORDERS
     const active = await Order.findOne({
       userId,
       status: { $nin: ["delivered", "declined"] }
@@ -43,6 +41,44 @@ exports.paymentProof = async (req, res) => {
       });
     }
 
+    // ==============================
+    // 🔥 INVENTORY VALIDATION & UPDATE
+    // ==============================
+    for (const cartItem of items) {
+      const product = await Product.findById(cartItem._id);
+
+      if (!product) {
+        return res.status(400).json({
+          msg: `Product not found`
+        });
+      }
+
+      if (!product.available || product.quantity <= 0) {
+        return res.status(400).json({
+          msg: `${product.name} is out of stock`
+        });
+      }
+
+      if (cartItem.qty > product.quantity) {
+        return res.status(400).json({
+          msg: `Only ${product.quantity} quantity left for ${product.name}`
+        });
+      }
+
+      // 🔻 DEDUCT QUANTITY
+      product.quantity -= cartItem.qty;
+
+      // 🔴 AUTO DISABLE IF ZERO
+      if (product.quantity === 0) {
+        product.available = false;
+      }
+
+      await product.save();
+    }
+
+    // ==============================
+    // ✅ CREATE ORDER
+    // ==============================
     const order = await Order.create({
       userId,
       items,
@@ -62,10 +98,11 @@ exports.paymentProof = async (req, res) => {
     });
 
   } catch (err) {
-    console.log(err);
+    console.error(err);
     res.status(500).json({ msg: "Server Error" });
   }
 };
+
 
 
 
@@ -169,24 +206,17 @@ exports.getMyOrders = async (req, res) => {
 
 
 /* ============================
-   OWNER → SUPER ANALYTICS ✅
+   OWNER → SUPER ANALYTICS
 ============================ */
 exports.superAnalytics = async (req, res) => {
   try {
     const orders = await Order.find();
 
-    const now = new Date();
     const todayStart = new Date();
     todayStart.setHours(0,0,0,0);
 
     const todayEnd = new Date();
     todayEnd.setHours(23,59,59,999);
-
-    const yesterdayStart = new Date(todayStart);
-    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-
-    const yesterdayEnd = new Date(todayEnd);
-    yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
 
     const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
@@ -204,11 +234,6 @@ exports.superAnalytics = async (req, res) => {
       new Date(o.createdAt) <= todayEnd
     );
 
-    const yesterdayOrders = orders.filter(o =>
-      new Date(o.createdAt) >= yesterdayStart &&
-      new Date(o.createdAt) <= yesterdayEnd
-    );
-
     const monthOrders = orders.filter(o =>
       new Date(o.createdAt) >= monthStart
     );
@@ -218,10 +243,6 @@ exports.superAnalytics = async (req, res) => {
       today: {
         orders: todayOrders.length,
         earning: sum(todayOrders)
-      },
-      yesterday: {
-        orders: yesterdayOrders.length,
-        earning: sum(yesterdayOrders)
       },
       month: {
         orders: monthOrders.length,
@@ -235,6 +256,7 @@ exports.superAnalytics = async (req, res) => {
     res.status(500).json({ msg: "Analytics error" });
   }
 };
+
 
 /* ============================
    OWNER → GET ORDER STATUS

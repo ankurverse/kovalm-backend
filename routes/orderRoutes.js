@@ -11,25 +11,42 @@ const {
   getMyOrders,
   superAnalytics,
   getOrderStatus,
-  toggleOrders
+  toggleOrders,
+  validateCartStock // ✅ ADD THIS
 } = require("../controllers/orderController");
 
+/* ============================
+   STUDENT ROUTES
+============================ */
+
+// 🔒 Validate stock BEFORE checkout
+router.post("/validate-stock", auth, validateCartStock);
+
+// Create order after payment
 router.post("/payment", auth, paymentProof);
+
+// My orders
 router.get("/my", auth, getMyOrders);
 
-
-router.get("/owner/all", auth, getOrdersForOwner);
-router.get("/owner/super-analytics", auth, superAnalytics);
-
-// ✅ STUDENT – CHECK SHOP STATUS
+// Check shop open/close status
 router.get("/status", getOrderStatus);
 
 
-// START / STOP ORDERS
+/* ============================
+   OWNER ROUTES
+============================ */
+
+// Get all orders
+router.get("/owner/all", auth, getOrdersForOwner);
+
+// Analytics
+router.get("/owner/super-analytics", auth, superAnalytics);
+
+// Shop open / close
 router.get("/owner/status", auth, getOrderStatus);
 router.post("/owner/toggle", auth, toggleOrders);
 
-// ORDER ACTIONS
+// Order actions
 router.post("/owner/accept", auth, acceptOrder);
 router.post("/owner/decline", auth, declineOrder);
 router.post("/owner/status", auth, updateStatus);

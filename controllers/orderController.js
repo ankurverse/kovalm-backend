@@ -286,3 +286,34 @@ exports.toggleOrders = async (req, res) => {
       : "Orders are now CLOSED"
   });
 };
+
+// ============================
+// STUDENT → CHECK CART STOCK BEFORE PAYMENT
+// ============================
+exports.validateCartStock = async (req, res) => {
+  try {
+    const { items } = req.body;
+
+    for (const cartItem of items) {
+      const product = await Product.findById(cartItem._id);
+
+      if (!product || product.quantity <= 0) {
+        return res.status(400).json({
+          msg: `${cartItem.name} is out of stock`
+        });
+      }
+
+      if (cartItem.qty > product.quantity) {
+        return res.status(400).json({
+          msg: `Only ${product.quantity} left for ${product.name}`
+        });
+      }
+    }
+
+    res.json({ ok: true });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Stock validation failed" });
+  }
+};

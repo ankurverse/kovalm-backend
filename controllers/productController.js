@@ -29,16 +29,19 @@ exports.getAllProductsForOwner = async (req, res) => {
 ============================ */
 exports.addProduct = async (req, res) => {
   try {
-    const { name, description, price, image, category } = req.body;
+    const { name, description, price, image, category, quantity } = req.body;
+
 
     const product = await Product.create({
-      name,
-      description,
-      price,
-      image,
-      category,
-      available: true
-    });
+  name,
+  description,
+  price,
+  image,
+  category,
+  quantity: quantity || 0,
+  available: quantity > 0
+});
+
 
     res.json({ msg: "Product added", product });
   } catch (err) {

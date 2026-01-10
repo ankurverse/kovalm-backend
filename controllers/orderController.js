@@ -212,22 +212,22 @@ exports.superAnalytics = async (req, res) => {
   try {
     const orders = await Order.find();
 
-    const todayStart = new Date();
-    todayStart.setHours(0,0,0,0);
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000;
 
-    const todayEnd = new Date();
-    todayEnd.setHours(23,59,59,999);
+    const todayStart = new Date(
+      new Date(now.getTime() + istOffset).setHours(0,0,0,0) - istOffset
+    );
 
-    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const todayEnd = new Date(
+      new Date(now.getTime() + istOffset).setHours(23,59,59,999) - istOffset
+    );
 
-    const count = {
-      total: orders.length,
-      delivered: orders.filter(o => o.status === "delivered").length,
-      declined: orders.filter(o => o.status === "declined").length,
-      pending: orders.filter(o => !["delivered","declined"].includes(o.status)).length
-    };
-
-    const sum = arr => arr.reduce((s,o)=> s + (o.totalAmount || 0), 0);
+    const monthStart = new Date(
+      new Date(now.getTime() + istOffset).getFullYear(),
+      new Date(now.getTime() + istOffset).getMonth(),
+      1
+    );
 
     const todayOrders = orders.filter(o =>
       new Date(o.createdAt) >= todayStart &&
@@ -238,17 +238,26 @@ exports.superAnalytics = async (req, res) => {
       new Date(o.createdAt) >= monthStart
     );
 
+    const deliveredToday = todayOrders.filter(o => o.status === "delivered");
+    const deliveredMonth = monthOrders.filter(o => o.status === "delivered");
+
+    const sum = arr => arr.reduce((s,o)=> s + (o.totalAmount || 0), 0);
+
     res.json({
-      count,
+      count: {
+        total: orders.length,
+        delivered: orders.filter(o => o.status === "delivered").length,
+        declined: orders.filter(o => o.status === "declined").length,
+        pending: orders.filter(o => !["delivered","declined"].includes(o.status)).length
+      },
       today: {
         orders: todayOrders.length,
-        earning: sum(todayOrders)
+        earning: sum(deliveredToday)
       },
       month: {
         orders: monthOrders.length,
-        earning: sum(monthOrders)
-      },
-      orders
+        earning: sum(deliveredMonth)
+      }
     });
 
   } catch (err) {
@@ -256,6 +265,7 @@ exports.superAnalytics = async (req, res) => {
     res.status(500).json({ msg: "Analytics error" });
   }
 };
+
 
 
 /* ============================

@@ -3,8 +3,13 @@ const Order = require("../models/Order");
 const Product = require("../models/Product");
 const { sendEmail } = require("../utils/emailService");
 
+console.log("📧 reportCron loaded");
+
 // 🌙 DAILY REPORT (11:59 PM IST)
-cron.schedule("* * * * *", async () => {
+cron.schedule("59 23 * * *", async () => {
+
+console.log("⏰ Daily report cron triggered");
+
 
   const todayStart = new Date();
   todayStart.setHours(0,0,0,0);

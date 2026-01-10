@@ -1,9 +1,12 @@
-require("./cron/reportCron");
+
 
 
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
+
+require("./cron/reportCron");
+
 const connectDB = require("./config/db");
 
 const app = express();

@@ -208,6 +208,9 @@ exports.getMyOrders = async (req, res) => {
 /* ============================
    OWNER → SUPER ANALYTICS
 ============================ */
+/* ============================
+   OWNER → SUPER ANALYTICS (IST SAFE)
+============================ */
 exports.superAnalytics = async (req, res) => {
   try {
     const orders = await Order.find();
@@ -215,44 +218,84 @@ exports.superAnalytics = async (req, res) => {
     const now = new Date();
     const istOffset = 5.5 * 60 * 60 * 1000;
 
-    const todayStart = new Date(
-      new Date(now.getTime() + istOffset).setHours(0,0,0,0) - istOffset
-    );
+    // ======================
+    // TODAY (IST)
+    // ======================
+    const todayIST = new Date(now.getTime() + istOffset);
 
-    const todayEnd = new Date(
-      new Date(now.getTime() + istOffset).setHours(23,59,59,999) - istOffset
-    );
+    const todayStart = new Date(todayIST);
+    todayStart.setHours(0, 0, 0, 0);
+    todayStart.setTime(todayStart.getTime() - istOffset);
 
-    const monthStart = new Date(
-      new Date(now.getTime() + istOffset).getFullYear(),
-      new Date(now.getTime() + istOffset).getMonth(),
+    const todayEnd = new Date(todayIST);
+    todayEnd.setHours(23, 59, 59, 999);
+    todayEnd.setTime(todayEnd.getTime() - istOffset);
+
+    // ======================
+    // YESTERDAY (IST)
+    // ======================
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+
+    const yesterdayEnd = new Date(todayEnd);
+    yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
+
+    // ======================
+    // MONTH (IST)
+    // ======================
+    const monthStartIST = new Date(
+      todayIST.getFullYear(),
+      todayIST.getMonth(),
       1
     );
+    const monthStart = new Date(monthStartIST.getTime() - istOffset);
 
+    // ======================
+    // FILTER ORDERS
+    // ======================
     const todayOrders = orders.filter(o =>
       new Date(o.createdAt) >= todayStart &&
       new Date(o.createdAt) <= todayEnd
+    );
+
+    const yesterdayOrders = orders.filter(o =>
+      new Date(o.createdAt) >= yesterdayStart &&
+      new Date(o.createdAt) <= yesterdayEnd
     );
 
     const monthOrders = orders.filter(o =>
       new Date(o.createdAt) >= monthStart
     );
 
+    // ======================
+    // DELIVERED ONLY (EARNINGS)
+    // ======================
     const deliveredToday = todayOrders.filter(o => o.status === "delivered");
+    const deliveredYesterday = yesterdayOrders.filter(o => o.status === "delivered");
     const deliveredMonth = monthOrders.filter(o => o.status === "delivered");
 
-    const sum = arr => arr.reduce((s,o)=> s + (o.totalAmount || 0), 0);
+    const sum = arr =>
+      arr.reduce((s, o) => s + (o.totalAmount || 0), 0);
 
+    // ======================
+    // RESPONSE
+    // ======================
     res.json({
       count: {
         total: orders.length,
         delivered: orders.filter(o => o.status === "delivered").length,
         declined: orders.filter(o => o.status === "declined").length,
-        pending: orders.filter(o => !["delivered","declined"].includes(o.status)).length
+        pending: orders.filter(o =>
+          !["delivered", "declined"].includes(o.status)
+        ).length
       },
       today: {
         orders: todayOrders.length,
         earning: sum(deliveredToday)
+      },
+      yesterday: {
+        orders: yesterdayOrders.length,
+        earning: sum(deliveredYesterday)
       },
       month: {
         orders: monthOrders.length,
@@ -261,10 +304,11 @@ exports.superAnalytics = async (req, res) => {
     });
 
   } catch (err) {
-    console.log(err);
+    console.error(err);
     res.status(500).json({ msg: "Analytics error" });
   }
 };
+
 
 
 

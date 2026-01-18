@@ -1,4 +1,5 @@
 const Product = require("../models/Product");
+const XLSX = require("xlsx");
 
 /* ============================
    STUDENT → GET PRODUCTS
@@ -31,17 +32,15 @@ exports.addProduct = async (req, res) => {
   try {
     const { name, description, price, image, category, quantity } = req.body;
 
-
     const product = await Product.create({
-  name,
-  description,
-  price,
-  image,
-  category,
-  quantity: quantity || 0,
-  available: quantity > 0
-});
-
+      name,
+      description,
+      price,
+      image,
+      category,
+      quantity: quantity || 0,
+      available: quantity > 0
+    });
 
     res.json({ msg: "Product added", product });
   } catch (err) {
@@ -110,6 +109,9 @@ exports.toggleAvailability = async (req, res) => {
   }
 };
 
+/* ============================
+   OWNER → UPDATE STOCK (MANUAL)
+============================ */
 exports.updateStock = async (req, res) => {
   try {
     const { productId, change } = req.body;
@@ -123,7 +125,6 @@ exports.updateStock = async (req, res) => {
     if (product.quantity < 0) product.quantity = 0;
 
     product.available = product.quantity > 0;
-
     await product.save();
 
     res.json({
@@ -131,15 +132,14 @@ exports.updateStock = async (req, res) => {
       quantity: product.quantity,
       available: product.available
     });
-
   } catch (err) {
     res.status(500).json({ msg: "Failed to update stock" });
   }
 };
 
-const XLSX = require("xlsx");
-const Product = require("../models/Product");
-
+/* ============================
+   OWNER → UPDATE STOCK FROM EXCEL
+============================ */
 exports.updateStockFromExcel = async (req, res) => {
   try {
     if (!req.file) {
@@ -163,17 +163,14 @@ exports.updateStockFromExcel = async (req, res) => {
         continue;
       }
 
-      // 🔒 STRICT MATCH: name + price
       const product = await Product.findOne({ name, price });
-
       if (!product) {
         skipped++;
-        continue; // ❌ DO NOT CREATE PRODUCT
+        continue;
       }
 
       product.quantity += quantity;
       product.available = product.quantity > 0;
-
       await product.save();
       updated++;
     }
@@ -183,7 +180,6 @@ exports.updateStockFromExcel = async (req, res) => {
       updated,
       skipped
     });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Excel stock update failed" });

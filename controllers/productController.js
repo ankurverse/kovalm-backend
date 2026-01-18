@@ -136,3 +136,56 @@ exports.updateStock = async (req, res) => {
     res.status(500).json({ msg: "Failed to update stock" });
   }
 };
+
+const XLSX = require("xlsx");
+const Product = require("../models/Product");
+
+exports.updateStockFromExcel = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ msg: "Excel file required" });
+    }
+
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet);
+
+    let updated = 0;
+    let skipped = 0;
+
+    for (const row of rows) {
+      const name = row.name?.trim();
+      const price = Number(row.price);
+      const quantity = Number(row.quantity);
+
+      if (!name || !price || quantity <= 0) {
+        skipped++;
+        continue;
+      }
+
+      // 🔒 STRICT MATCH: name + price
+      const product = await Product.findOne({ name, price });
+
+      if (!product) {
+        skipped++;
+        continue; // ❌ DO NOT CREATE PRODUCT
+      }
+
+      product.quantity += quantity;
+      product.available = product.quantity > 0;
+
+      await product.save();
+      updated++;
+    }
+
+    res.json({
+      msg: "Stock updated successfully",
+      updated,
+      skipped
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Excel stock update failed" });
+  }
+};

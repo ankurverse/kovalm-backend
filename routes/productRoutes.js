@@ -1,5 +1,7 @@
 const express = require("express");
 const router = express.Router();
+const { updateStockFromExcel } = require("../controllers/productController");
+
 
 const {
   getProducts,
@@ -14,6 +16,7 @@ const {
 
 const auth = require("../middleware/authMiddleware");
 const ownerOnly = require("../middleware/ownerOnly");
+const upload = require("../utils/excelUpload");
 
 /* ============================
    STUDENT ROUTES
@@ -33,5 +36,14 @@ router.post("/owner", addProduct);
 router.put("/owner/:id", updateProduct);
 router.delete("/owner/:id", deleteProduct);
 router.patch("/owner/:id/availability", toggleAvailability);
+
+
+
+router.post(
+  "/owner/upload-stock",
+  upload.single("file"),
+  updateStockFromExcel
+);
+
 
 module.exports = router;

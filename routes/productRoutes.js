@@ -1,8 +1,9 @@
 const express = require("express");
 const router = express.Router();
-const { updateStockFromExcel } = require("../controllers/productController");
 
-
+/* ============================
+   CONTROLLERS
+============================ */
 const {
   getProducts,
   getAllProductsForOwner,
@@ -10,40 +11,42 @@ const {
   updateProduct,
   deleteProduct,
   toggleAvailability,
-  updateStock   // ✅ ADD
+  updateStock,
+  updateStockFromExcel
 } = require("../controllers/productController");
 
-
+/* ============================
+   MIDDLEWARE
+============================ */
 const auth = require("../middleware/authMiddleware");
 const ownerOnly = require("../middleware/ownerOnly");
 const upload = require("../utils/excelUpload");
 
 /* ============================
-   STUDENT ROUTES
+   STUDENT ROUTES (PUBLIC)
 ============================ */
 router.get("/", getProducts);
 
 /* ============================
    OWNER ROUTES (PROTECTED)
 ============================ */
-router.patch("/owner/update-stock", updateStock);
 
+// 🔐 Stock + inventory actions
+router.patch("/owner/update-stock", auth, ownerOnly, updateStock);
 
-router.use(auth, ownerOnly);
+router.get("/owner/all", auth, ownerOnly, getAllProductsForOwner);
+router.post("/owner", auth, ownerOnly, addProduct);
+router.put("/owner/:id", auth, ownerOnly, updateProduct);
+router.delete("/owner/:id", auth, ownerOnly, deleteProduct);
+router.patch("/owner/:id/availability", auth, ownerOnly, toggleAvailability);
 
-router.get("/owner/all", getAllProductsForOwner);
-router.post("/owner", addProduct);
-router.put("/owner/:id", updateProduct);
-router.delete("/owner/:id", deleteProduct);
-router.patch("/owner/:id/availability", toggleAvailability);
-
-
-
+// 📥 Excel stock upload
 router.post(
   "/owner/upload-stock",
+  auth,
+  ownerOnly,
   upload.single("file"),
   updateStockFromExcel
 );
-
 
 module.exports = router;

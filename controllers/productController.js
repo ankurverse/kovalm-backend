@@ -140,6 +140,8 @@ exports.updateStock = async (req, res) => {
 /* ============================
    OWNER → UPDATE STOCK FROM EXCEL
 ============================ */
+const StockLog = require("../models/StockLog");
+
 exports.updateStockFromExcel = async (req, res) => {
   try {
     if (!req.file) {
@@ -152,6 +154,7 @@ exports.updateStockFromExcel = async (req, res) => {
 
     let updated = 0;
     let skipped = 0;
+    const changes = [];
 
     for (const row of rows) {
       const name = row.name?.trim();
@@ -172,8 +175,20 @@ exports.updateStockFromExcel = async (req, res) => {
       product.quantity += quantity;
       product.available = product.quantity > 0;
       await product.save();
+
+      changes.push({
+        productId: product._id,
+        quantityAdded: quantity
+      });
+
       updated++;
     }
+
+    // ✅ Save log for undo
+    await StockLog.create({
+      type: "EXCEL_UPLOAD",
+      changes
+    });
 
     res.json({
       msg: "Stock updated successfully",
@@ -185,3 +200,34 @@ exports.updateStockFromExcel = async (req, res) => {
     res.status(500).json({ msg: "Excel stock update failed" });
   }
 };
+
+
+exports.undoLastExcelUpload = async (req, res) => {
+  try {
+    const lastLog = await StockLog.findOne({ type: "EXCEL_UPLOAD" })
+      .sort({ createdAt: -1 });
+
+    if (!lastLog) {
+      return res.status(400).json({ msg: "No Excel upload to undo" });
+    }
+
+    for (const entry of lastLog.changes) {
+      const product = await Product.findById(entry.productId);
+      if (!product) continue;
+
+      product.quantity -= entry.quantityAdded;
+      if (product.quantity < 0) product.quantity = 0;
+
+      product.available = product.quantity > 0;
+      await product.save();
+    }
+
+    await lastLog.deleteOne();
+
+    res.json({ msg: "Last Excel upload undone successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Undo failed" });
+  }
+};
+
